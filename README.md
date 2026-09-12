@@ -14,6 +14,9 @@ dependencies.
 go get github.com/satorunooshie/bloomfilter
 ```
 
+The module path is `github.com/satorunooshie/bloomfilter`; the package name in
+Go source is `bloom`.
+
 ## Library
 
 ### Benchmarks
@@ -21,20 +24,32 @@ go get github.com/satorunooshie/bloomfilter
 The library provides benchmarks for concurrent throughput, key distributions,
 multiple capacities/FPRs, cache-line contention, and Reset behavior.
 
-The hash-oriented comparison uses precomputed hashes and compares concurrent
-implementations directly:
+#### Prehashed concurrent operations
 
-| Operation | `HashFilter` | `blobloom.Filter` | `blobloom.SyncFilter` |
-| --- | ---: | ---: | ---: |
-| Add | 3.42 ns/op | 3.53 ns/op | 4.90 ns/op |
-| Contains | 3.03 ns/op | 3.38 ns/op | 3.52 ns/op |
+This comparison measures the filter operation itself: callers provide an
+already-computed `uint64` hash. It compares concurrent implementations. Both
+`HashFilter` and `blobloom.SyncFilter`
+are safe for concurrent Add/Contains and have no Reset method, so their hot
+paths have no Reset coordination.
 
-The key-oriented comparison includes hashing in the operation:
+| Operation | `HashFilter` (atomic, no Reset) | `blobloom.SyncFilter` (atomic, no Reset) |
+| --- | ---: | ---: |
+| Add | 3.42 ns/op | 4.90 ns/op |
+| Contains | 3.03 ns/op | 3.52 ns/op |
 
-| Operation | `bloomfilter.Filter` | `bits-and-blooms` | `phrozen` |
+#### Key-oriented operations (hashing included)
+
+This comparison includes hashing in each operation. `Filter[T]` is the
+key-based API in this library:
+
+| Operation | `Filter[T]` (this library) | `bits-and-blooms` | `phrozen` |
 | --- | ---: | ---: | ---: |
 | Add | 20.90 ns/op | 32.98 ns/op | 26.06 ns/op |
 | Contains | 19.25 ns/op | 22.39 ns/op | 25.98 ns/op |
+
+For reference, the non-concurrent `blobloom.Filter` measured 3.53 ns/op for
+Add and 3.38 ns/op for Contains. It provides `Clear()` but is not safe for
+concurrent updates.
 
 These results were measured on an Apple M4 Max with Go 1.27.1. Results vary by
 CPU, Go version, and system load. Run the benchmarks yourself with:
@@ -47,6 +62,27 @@ go test -run '^$' -bench='Benchmark(ContainsScenarios|Parallel|Reset)' -benchmem
 cd comparison
 go test -run '^$' -bench='BenchmarkComparison' -benchmem -count=5 .
 ```
+
+The concurrent scaling benchmark measures `Filter[uint64].Contains` with
+exactly 16, 32, or 64 worker goroutines. `GOMAXPROCS` is left at its runtime
+default so goroutine concurrency is measured independently from CPU parallelism.
+Each case uses 100% hit, 100% miss, or a 50/50 mixed workload:
+
+```sh
+go test -run '^$' -bench='^BenchmarkParallelScalingScenarios$' \
+  -benchmem -benchtime=1s .
+```
+
+Reference results from an Apple M4 Max with Go 1.27.1 (`-benchtime=1s`):
+
+| Worker goroutines | 100% hit | 100% miss | Mixed |
+| ---: | ---: | ---: | ---: |
+| 16 | 1.82 ns/op | 2.41 ns/op | 2.16 ns/op |
+| 32 | 1.77 ns/op | 2.57 ns/op | 2.24 ns/op |
+| 64 | 1.86 ns/op | 2.57 ns/op | 2.24 ns/op |
+
+These are reference measurements only; results vary with CPU, Go version, and
+system load. All scenarios measured 0 B/op and 0 allocs/op in this run.
 
 ### Native Go types
 
