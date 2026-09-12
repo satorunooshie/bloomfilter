@@ -24,12 +24,10 @@ var (
 	ErrIncompatible    = errors.New("bloom: filters have incompatible parameters")
 )
 
-// Filter is a lock-free concurrent Bloom filter. The zero value is not ready
+// Filter is a concurrent Bloom filter with a lock-free atomic bitset. The zero value is not ready
 // for use; create filters with New, NewWithHasher, or NewWithSeed. It may
 // contain false positives, but never returns a false negative for a value
-// added to the same Filter. Add and Contains may run concurrently. Reset may
-// also run concurrently; an Add racing with Reset may be cleared by that
-// Reset.
+// added to the same Filter. Add, Contains, and Reset may run concurrently.
 //
 // A Filter keeps a private random maphash seed. Consequently its bitset is
 // intentionally not portable across processes; maphash.Seed cannot be
@@ -44,6 +42,7 @@ type Filter[T any] struct {
 	seed     maphash.Seed
 	hasher   maphash.Hasher[T]
 	hashPool sync.Pool
+	epoch    atomic.Uint64
 }
 
 // noCopy makes go vet flag accidental copies of a live Filter.
@@ -111,7 +110,20 @@ func newWithSeed[T any](capacity uint64, falsePositiveRate float64, hasher mapha
 
 // Add inserts value into the filter.
 func (f *Filter[T]) Add(value T) {
-	h1, h2 := f.hash(value)
+	for {
+		epoch := f.epoch.Load()
+		if epoch&1 != 0 {
+			continue
+		}
+		h1, h2 := f.hash(value)
+		f.addHash(h1, h2)
+		if f.epoch.Load() == epoch {
+			return
+		}
+	}
+}
+
+func (f *Filter[T]) addHash(h1, h2 uint64) {
 	for i := uint64(0); i < f.k; i++ {
 		index := core.Probe(h1, h2, i, f.bits)
 		f.words[index>>6].Or(uint64(1) << (index & 63))
@@ -121,7 +133,20 @@ func (f *Filter[T]) Add(value T) {
 // Contains reports whether value may have been added to the filter. false
 // means value was definitely not added; true may be a false positive.
 func (f *Filter[T]) Contains(value T) bool {
-	h1, h2 := f.hash(value)
+	for {
+		epoch := f.epoch.Load()
+		if epoch&1 != 0 {
+			continue
+		}
+		h1, h2 := f.hash(value)
+		result := f.containsHash(h1, h2)
+		if f.epoch.Load() == epoch {
+			return result
+		}
+	}
+}
+
+func (f *Filter[T]) containsHash(h1, h2 uint64) bool {
 	for i := uint64(0); i < f.k; i++ {
 		index := core.Probe(h1, h2, i, f.bits)
 		if f.words[index>>6].Load()&(uint64(1)<<(index&63)) == 0 {
@@ -156,9 +181,17 @@ func (f *Filter[T]) Merge(other *Filter[T]) error {
 // Reset removes all values from the filter while retaining its size and hash
 // seed.
 func (f *Filter[T]) Reset() {
+	for {
+		epoch := f.epoch.Load()
+		if epoch&1 != 0 || !f.epoch.CompareAndSwap(epoch, epoch+1) {
+			continue
+		}
+		break
+	}
 	for i := range f.words {
 		f.words[i].Store(0)
 	}
+	f.epoch.Store(f.epoch.Load() + 1)
 }
 
 // Seed returns the seed used by this filter. Keep it in memory if another
@@ -196,6 +229,10 @@ func (f *Filter[T]) hash(value T) (uint64, uint64) {
 	x := h.Sum64()
 	h.Reset()
 	f.hashPool.Put(h)
+	return hashPair(x)
+}
+
+func hashPair(x uint64) (uint64, uint64) {
 	// Two 32-bit halves provide the two streams used by double hashing.
 	return x, bits.RotateLeft64(x, 32) | 1
 }

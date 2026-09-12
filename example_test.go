@@ -17,6 +17,22 @@ func ExampleNew() {
 	// Output: true
 }
 
+func ExampleNewHash() {
+	seed := maphash.MakeSeed()
+	var h maphash.Hash
+	h.SetSeed(seed)
+	h.WriteString("alice")
+	keyHash := h.Sum64()
+
+	filter, err := bloom.NewHash(1000, 0.01)
+	if err != nil {
+		panic(err)
+	}
+	filter.Add(keyHash)
+	fmt.Println(filter.Contains(keyHash))
+	// Output: true
+}
+
 type account struct{ ID uint64 }
 
 type accountHasher struct{}

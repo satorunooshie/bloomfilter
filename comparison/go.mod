@@ -4,6 +4,7 @@ go 1.27.1
 
 require (
 	github.com/bits-and-blooms/bloom/v3 v3.7.1
+	github.com/greatroar/blobloom v0.8.1
 	github.com/phrozen/bloom v0.2.0
 	github.com/satorunooshie/bloomfilter v0.0.0
 )
