@@ -133,6 +133,25 @@ printf 'alice\nbob\n' | go run ./cmd/bloom insert -file users.bloom
 printf 'alice\ncarol\n' | go run ./cmd/bloom check -file users.bloom
 ```
 
+## Benchmarks
+
+Single-threaded comparison on an Apple M4 Max with Go 1.27.1. The comparison
+uses the same `[]byte` input and reports zero allocations per operation.
+
+| Operation | bloomfilter | bits-and-blooms | phrozen |
+| --- | ---: | ---: | ---: |
+| Add | 21.2 ns/op | 33.7 ns/op | 26.4 ns/op |
+| Contains | 19.6 ns/op | 22.7 ns/op | 26.2 ns/op |
+
+Run the comparison yourself with:
+
+```sh
+cd comparison
+go test -run '^$' -bench='BenchmarkComparison' -benchmem -count=5 ./...
+```
+
+Results vary with the CPU, Go version, and system load.
+
 ## License
 
 See the repository license.
