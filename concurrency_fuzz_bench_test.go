@@ -23,7 +23,7 @@ func TestFilterConcurrentOperations(t *testing.T) {
 	start := make(chan struct{})
 	workersDone := make(chan struct{})
 
-	for worker := uint64(0); worker < workers; worker++ {
+	for worker := range uint64(workers) {
 		worker := worker
 		ready.Add(1)
 		wg.Add(1)
@@ -33,7 +33,7 @@ func TestFilterConcurrentOperations(t *testing.T) {
 			defer workersWG.Done()
 			ready.Done()
 			<-start
-			for i := uint64(0); i < 5_000; i++ {
+			for i := range uint64(5_000) {
 				value := worker<<32 | i
 				f.Add(value)
 				f.Contains(value)
@@ -46,9 +46,7 @@ func TestFilterConcurrentOperations(t *testing.T) {
 		workersWG.Wait()
 		close(workersDone)
 	}()
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		for {
 			select {
 			case <-workersDone:
@@ -57,7 +55,7 @@ func TestFilterConcurrentOperations(t *testing.T) {
 				f.Reset()
 			}
 		}
-	}()
+	})
 	wg.Wait()
 }
 
@@ -69,17 +67,15 @@ func TestHashFilterConcurrentOperations(t *testing.T) {
 
 	const workers = 8
 	var wg sync.WaitGroup
-	for worker := uint64(0); worker < workers; worker++ {
+	for worker := range uint64(workers) {
 		worker := worker
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			for i := uint64(0); i < 5_000; i++ {
+		wg.Go(func() {
+			for i := range uint64(5_000) {
 				value := mixHash(worker<<32 | i)
 				f.Add(value)
 				f.Contains(value)
 			}
-		}()
+		})
 	}
 	wg.Wait()
 }
@@ -127,13 +123,12 @@ func TestMeasuredFalsePositiveRateProperty(t *testing.T) {
 		queries  = 250_000
 	)
 	for _, rate := range []float64{0.1, 0.01, 0.001, 0.0001} {
-		rate := rate
 		t.Run(fmt.Sprintf("rate=%g", rate), func(t *testing.T) {
 			filter, err := NewHash(capacity, rate)
 			if err != nil {
 				t.Fatal(err)
 			}
-			for i := uint64(0); i < capacity; i++ {
+			for i := range uint64(capacity) {
 				filter.Add(mixHash(i))
 			}
 			falsePositives := 0
@@ -174,7 +169,7 @@ func BenchmarkParallelScalingScenarios(b *testing.B) {
 				if err != nil {
 					b.Fatal(err)
 				}
-				for i := uint64(0); i < capacity; i++ {
+				for i := range uint64(capacity) {
 					filter.Add(i)
 				}
 				b.ReportAllocs()
@@ -198,7 +193,7 @@ func benchmarkWorkers(b *testing.B, workers int, operation func(uint64)) {
 	start := make(chan struct{})
 	ready.Add(workers)
 	wg.Add(workers)
-	for worker := 0; worker < workers; worker++ {
+	for worker := range workers {
 		first := uint64(b.N) * uint64(worker) / uint64(workers)
 		last := uint64(b.N) * uint64(worker+1) / uint64(workers)
 		go func(first, last uint64) {

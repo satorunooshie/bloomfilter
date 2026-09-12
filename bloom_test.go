@@ -44,19 +44,17 @@ func TestHashFilterConcurrentAdd(t *testing.T) {
 		valuesPerWorker = 1_000
 	)
 	var wg sync.WaitGroup
-	for worker := uint64(0); worker < workers; worker++ {
+	for worker := range uint64(workers) {
 		worker := worker
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			for i := uint64(0); i < valuesPerWorker; i++ {
+		wg.Go(func() {
+			for i := range uint64(valuesPerWorker) {
 				f.Add((worker << 32) | i)
 			}
-		}()
+		})
 	}
 	wg.Wait()
-	for worker := uint64(0); worker < workers; worker++ {
-		for i := uint64(0); i < valuesPerWorker; i++ {
+	for worker := range uint64(workers) {
+		for i := range uint64(valuesPerWorker) {
 			if !f.Contains((worker << 32) | i) {
 				t.Fatalf("concurrent Add lost hash worker=%d value=%d", worker, i)
 			}
@@ -205,17 +203,16 @@ func TestObservedFalsePositiveRate(t *testing.T) {
 		queries  = 1_000_000
 	)
 	for _, rate := range []float64{0.1, 0.01, 0.001, 0.0001} {
-		rate := rate
 		t.Run(fmt.Sprintf("rate=%g", rate), func(t *testing.T) {
 			f, err := New[uint64](capacity, rate)
 			if err != nil {
 				t.Fatal(err)
 			}
-			for i := uint64(0); i < capacity; i++ {
+			for i := range uint64(capacity) {
 				f.Add(i)
 			}
 			falsePositives := 0
-			for i := uint64(0); i < queries; i++ {
+			for i := range uint64(queries) {
 				// The high bit keeps every probe outside the inserted key set.
 				if f.Contains(i | (uint64(1) << 63)) {
 					falsePositives++
@@ -250,7 +247,7 @@ func TestHashFilterObservedFalsePositiveRate(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			for i := uint64(0); i < capacity; i++ {
+			for i := range uint64(capacity) {
 				f.Add(mix(i))
 			}
 			falsePositives := 0
@@ -275,7 +272,7 @@ func BenchmarkContainsScenarios(b *testing.B) {
 				if err != nil {
 					b.Fatal(err)
 				}
-				for i := uint64(0); i < capacity; i++ {
+				for i := range capacity {
 					f.Add(i)
 				}
 				b.Run("present", func(b *testing.B) {
@@ -317,7 +314,7 @@ func BenchmarkParallelRunParallel(b *testing.B) {
 			if err != nil {
 				b.Fatal(err)
 			}
-			for i := uint64(0); i < capacity; i++ {
+			for i := range uint64(capacity) {
 				f.Add(i)
 			}
 			b.SetParallelism(1)
@@ -359,7 +356,7 @@ func BenchmarkReset(b *testing.B) {
 		if err != nil {
 			b.Fatal(err)
 		}
-		for i := uint64(0); i < 100_000; i++ {
+		for i := range uint64(100_000) {
 			f.Add(i)
 		}
 		b.ReportAllocs()
@@ -380,9 +377,7 @@ func BenchmarkAddWithConcurrentReset(b *testing.B) {
 		add, reset := f.Add, f.Reset
 		done := make(chan struct{})
 		var resetWG sync.WaitGroup
-		resetWG.Add(1)
-		go func() {
-			defer resetWG.Done()
+		resetWG.Go(func() {
 			for {
 				select {
 				case <-done:
@@ -391,7 +386,7 @@ func BenchmarkAddWithConcurrentReset(b *testing.B) {
 					reset()
 				}
 			}
-		}()
+		})
 		b.ReportAllocs()
 		b.ResetTimer()
 		b.RunParallel(func(pb *testing.PB) {
