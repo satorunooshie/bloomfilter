@@ -174,8 +174,7 @@ func BenchmarkAdd(b *testing.B) {
 		b.Fatal(err)
 	}
 	f.Contains("warmup")
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		f.Add("benchmark-value")
 	}
 }
@@ -187,8 +186,7 @@ func BenchmarkContains(b *testing.B) {
 	}
 	f.Add("benchmark-value")
 	f.Contains("warmup")
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		f.Contains("benchmark-value")
 	}
 }
@@ -277,20 +275,20 @@ func BenchmarkContainsScenarios(b *testing.B) {
 				}
 				b.Run("present", func(b *testing.B) {
 					b.ReportAllocs()
-					for i := 0; i < b.N; i++ {
+					for b.Loop() {
 						f.Contains(1)
 					}
 				})
 				b.Run("missing", func(b *testing.B) {
 					b.ReportAllocs()
-					for i := 0; i < b.N; i++ {
+					for b.Loop() {
 						f.Contains(uint64(1) << 63)
 					}
 				})
 				b.Run("random-unseen", func(b *testing.B) {
 					var x uint64 = 0x9e3779b97f4a7c15
 					b.ReportAllocs()
-					for i := 0; i < b.N; i++ {
+					for b.Loop() {
 						x ^= x << 7
 						x ^= x >> 9
 						f.Contains(x | (uint64(1) << 63))
@@ -360,8 +358,7 @@ func BenchmarkReset(b *testing.B) {
 			f.Add(i)
 		}
 		b.ReportAllocs()
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
+		for b.Loop() {
 			f.Reset()
 		}
 	})
