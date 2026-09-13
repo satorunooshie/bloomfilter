@@ -34,8 +34,7 @@ func BenchmarkComparisonAdd(b *testing.B) {
 		const valueHash = uint64(0x6f3c2a1e9d4b7085)
 		f.Add(valueHash)
 		b.ReportAllocs()
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
+		for b.Loop() {
 			f.Add(valueHash)
 		}
 	})
@@ -51,8 +50,7 @@ func BenchmarkComparisonAdd(b *testing.B) {
 		const valueHash = uint64(0x6f3c2a1e9d4b7085)
 		f.Add(valueHash)
 		b.ReportAllocs()
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
+		for b.Loop() {
 			f.Add(valueHash)
 		}
 	})
@@ -64,8 +62,7 @@ func BenchmarkComparisonAdd(b *testing.B) {
 		const valueHash = uint64(0x6f3c2a1e9d4b7085)
 		f.Add(valueHash)
 		b.ReportAllocs()
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
+		for b.Loop() {
 			f.Add(valueHash)
 		}
 	})
@@ -77,8 +74,7 @@ func BenchmarkComparisonAdd(b *testing.B) {
 		}
 		f.Add(comparisonValue) // warm the hash pool
 		b.ReportAllocs()
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
+		for b.Loop() {
 			f.Add(comparisonValue)
 		}
 	})
@@ -86,8 +82,7 @@ func BenchmarkComparisonAdd(b *testing.B) {
 	b.Run("bits-and-blooms/bloom", func(b *testing.B) {
 		f := bitsbloom.NewWithEstimates(comparisonCapacity, comparisonRate)
 		b.ReportAllocs()
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
+		for b.Loop() {
 			f.Add(comparisonValue)
 		}
 	})
@@ -95,8 +90,7 @@ func BenchmarkComparisonAdd(b *testing.B) {
 	b.Run("phrozen/bloom", func(b *testing.B) {
 		f := phrozenbloom.NewFilterFromProbability(comparisonCapacity, comparisonRate)
 		b.ReportAllocs()
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
+		for b.Loop() {
 			f.Add(comparisonValue)
 		}
 	})
@@ -111,8 +105,7 @@ func BenchmarkComparisonContains(b *testing.B) {
 		const valueHash = uint64(0x6f3c2a1e9d4b7085)
 		f.Add(valueHash)
 		b.ReportAllocs()
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
+		for b.Loop() {
 			f.Contains(valueHash)
 		}
 	})
@@ -125,8 +118,7 @@ func BenchmarkComparisonContains(b *testing.B) {
 		const valueHash = uint64(0x6f3c2a1e9d4b7085)
 		f.Add(valueHash)
 		b.ReportAllocs()
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
+		for b.Loop() {
 			f.Has(valueHash)
 		}
 	})
@@ -138,8 +130,7 @@ func BenchmarkComparisonContains(b *testing.B) {
 		const valueHash = uint64(0x6f3c2a1e9d4b7085)
 		f.Add(valueHash)
 		b.ReportAllocs()
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
+		for b.Loop() {
 			f.Has(valueHash)
 		}
 	})
@@ -151,8 +142,7 @@ func BenchmarkComparisonContains(b *testing.B) {
 		}
 		f.Add(comparisonValue)
 		b.ReportAllocs()
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
+		for b.Loop() {
 			f.Contains(comparisonValue)
 		}
 	})
@@ -161,8 +151,7 @@ func BenchmarkComparisonContains(b *testing.B) {
 		f := bitsbloom.NewWithEstimates(comparisonCapacity, comparisonRate)
 		f.Add(comparisonValue)
 		b.ReportAllocs()
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
+		for b.Loop() {
 			f.Test(comparisonValue)
 		}
 	})
@@ -171,8 +160,7 @@ func BenchmarkComparisonContains(b *testing.B) {
 		f := phrozenbloom.NewFilterFromProbability(comparisonCapacity, comparisonRate)
 		f.Add(comparisonValue)
 		b.ReportAllocs()
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
+		for b.Loop() {
 			f.Contains(comparisonValue)
 		}
 	})
